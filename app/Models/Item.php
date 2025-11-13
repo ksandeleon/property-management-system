@@ -64,6 +64,17 @@ class Item extends Model
             ->latest();
     }
 
+    public function maintenanceRequests()
+    {
+        return $this->hasMany(MaintenanceRequest::class);
+    }
+
+    public function pendingMaintenanceRequests()
+    {
+        return $this->hasMany(MaintenanceRequest::class)
+            ->where('status', 'pending');
+    }
+
     public function maintenanceRecords()
     {
         return $this->hasMany(MaintenanceRecord::class);
@@ -87,5 +98,22 @@ class Item extends Model
     public function isAssigned(): bool
     {
         return $this->status === 'assigned';
+    }
+
+    public function hasPendingMaintenance(): bool
+    {
+        return $this->maintenanceRequests()
+            ->where('status', 'pending')
+            ->exists();
+    }
+
+    public function isUnderMaintenance(): bool
+    {
+        return $this->status === 'maintenance';
+    }
+
+    public function getMaintenanceCountAttribute(): int
+    {
+        return $this->maintenanceRecords()->count();
     }
 }

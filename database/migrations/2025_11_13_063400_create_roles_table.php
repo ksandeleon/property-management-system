@@ -18,7 +18,7 @@ return new class extends Migration
             $table->text('description')->nullable();
             $table->boolean('is_system_role')->default(false);
             $table->timestamps();
-
+            
             $table->index('is_system_role');
         });
     }

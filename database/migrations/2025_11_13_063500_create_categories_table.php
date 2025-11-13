@@ -11,15 +11,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('roles', function (Blueprint $table) {
+        Schema::create('categories', function (Blueprint $table) {
             $table->id();
-            $table->string('name')->unique();
-            $table->string('display_name');
+            $table->string('name');
             $table->text('description')->nullable();
-            $table->boolean('is_system_role')->default(false);
+            $table->foreignId('parent_id')->nullable()->constrained('categories')->onDelete('cascade');
             $table->timestamps();
-
-            $table->index('is_system_role');
+            $table->softDeletes();
+            
+            $table->index('parent_id');
         });
     }
 
@@ -28,6 +28,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('roles');
+        Schema::dropIfExists('categories');
     }
 };

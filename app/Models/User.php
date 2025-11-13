@@ -76,20 +76,84 @@ class User extends Authenticatable
         return $this->hasMany(MaintenanceRequest::class, 'requested_by');
     }
 
-    // Permission checking methods
+    public function maintenanceRequestsReviewed()
+    {
+        return $this->hasMany(MaintenanceRequest::class, 'reviewed_by');
+    }
+
+    public function maintenanceRecordsRequested()
+    {
+        return $this->hasMany(MaintenanceRecord::class, 'requested_by');
+    }
+
+    public function maintenanceRecordsAssigned()
+    {
+        return $this->hasMany(MaintenanceRecord::class, 'assigned_to');
+    }
+
+    public function disposalRecordsRequested()
+    {
+        return $this->hasMany(DisposalRecord::class, 'requested_by');
+    }
+
+    public function disposalRecordsApproved()
+    {
+        return $this->hasMany(DisposalRecord::class, 'approved_by');
+    }
+
+    public function disposalRecordsExecuted()
+    {
+        return $this->hasMany(DisposalRecord::class, 'executed_by');
+    }
+
+    public function requests()
+    {
+        return $this->hasMany(Request::class);
+    }
+
+    public function requestsApproved()
+    {
+        return $this->hasMany(Request::class, 'approved_by');
+    }
+
+    // Permission checking methods (Optimized to prevent N+1 queries)
+    private $cachedPermissions;
+    private $cachedRoles;
+
     public function hasPermission(string $permission): bool
     {
-        // Direct permissions
-        if ($this->permissions()->where('name', $permission)->exists()) {
-            return true;
+        if (!isset($this->cachedPermissions)) {
+            $this->loadPermissionsCache();
         }
 
-        // Role-based permissions
-        return $this->roles()
-            ->whereHas('permissions', function ($query) use ($permission) {
-                $query->where('name', $permission);
-            })
-            ->exists();
+        return in_array($permission, $this->cachedPermissions);
+    }
+
+    private function loadPermissionsCache(): void
+    {
+        // Get direct permissions
+        $directPermissions = $this->permissions()
+            ->pluck('name')
+            ->toArray();
+
+        // Get role-based permissions
+        $rolePermissions = $this->roles()
+            ->with('permissions')
+            ->get()
+            ->pluck('permissions')
+            ->flatten()
+            ->pluck('name')
+            ->unique()
+            ->toArray();
+
+        $this->cachedPermissions = array_unique(array_merge($directPermissions, $rolePermissions));
+    }
+
+    private function loadRolesCache(): void
+    {
+        $this->cachedRoles = $this->roles()
+            ->pluck('name')
+            ->toArray();
     }
 
     public function hasAnyPermission(array $permissions): bool
@@ -114,27 +178,35 @@ class User extends Authenticatable
 
     public function hasRole(string $role): bool
     {
-        return $this->roles()->where('name', $role)->exists();
+        if (!isset($this->cachedRoles)) {
+            $this->loadRolesCache();
+        }
+
+        return in_array($role, $this->cachedRoles);
     }
 
     public function assignRole(Role $role): void
     {
         $this->roles()->syncWithoutDetaching($role);
+        unset($this->cachedRoles, $this->cachedPermissions);
     }
 
     public function removeRole(Role $role): void
     {
         $this->roles()->detach($role);
+        unset($this->cachedRoles, $this->cachedPermissions);
     }
 
     public function givePermission(Permission $permission): void
     {
         $this->permissions()->syncWithoutDetaching($permission);
+        unset($this->cachedPermissions);
     }
 
     public function revokePermission(Permission $permission): void
     {
         $this->permissions()->detach($permission);
+        unset($this->cachedPermissions);
     }
 
     public function isActive(): bool
@@ -145,5 +217,23 @@ class User extends Authenticatable
     public function isSuperAdmin(): bool
     {
         return $this->hasRole('super_administrator');
+    }
+
+    // Scopes for efficient queries
+    public function scopeActive($query)
+    {
+        return $query->where('status', 'active');
+    }
+
+    public function scopeWithRolesAndPermissions($query)
+    {
+        return $query->with(['roles.permissions', 'permissions']);
+    }
+
+    public function scopeWithActiveAssignments($query)
+    {
+        return $query->withCount(['assignments as active_assignments_count' => function ($query) {
+            $query->where('status', 'active');
+        }]);
     }
 }

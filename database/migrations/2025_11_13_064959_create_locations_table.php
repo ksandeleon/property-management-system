@@ -13,7 +13,18 @@ return new class extends Migration
     {
         Schema::create('locations', function (Blueprint $table) {
             $table->id();
+            $table->string('name');
+            $table->string('code')->unique();
+            $table->text('description')->nullable();
+            $table->string('building')->nullable();
+            $table->string('floor')->nullable();
+            $table->string('room')->nullable();
+            $table->foreignId('parent_id')->nullable()->constrained('locations')->onDelete('cascade');
             $table->timestamps();
+            $table->softDeletes();
+
+            $table->index('code');
+            $table->index('parent_id');
         });
     }
 
