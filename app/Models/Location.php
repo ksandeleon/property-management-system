@@ -32,6 +32,18 @@ class Location extends Model
 
     public function items()
     {
-        return $this->hasMany(Item::class);
+        return $this->hasMany(Item::class, 'location_id');
+    }
+
+    // NEW: Items where this location is the station (department/unit)
+    public function stationItems()
+    {
+        return $this->hasMany(Item::class, 'station_id');
+    }
+
+    public function allItems()
+    {
+        return Item::where('location_id', $this->id)
+            ->orWhere('station_id', $this->id);
     }
 }

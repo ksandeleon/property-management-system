@@ -116,6 +116,18 @@ class User extends Authenticatable
         return $this->hasMany(Request::class, 'approved_by');
     }
 
+    // NEW: Accountable Items - Items where this user is the accountable person
+    public function accountableItems()
+    {
+        return $this->hasMany(Item::class, 'accountable_person_id');
+    }
+
+    public function activeAccountableItems()
+    {
+        return $this->hasMany(Item::class, 'accountable_person_id')
+            ->whereNotIn('status', ['disposed']);
+    }
+
     // Permission checking methods (Optimized to prevent N+1 queries)
     private $cachedPermissions;
     private $cachedRoles;
